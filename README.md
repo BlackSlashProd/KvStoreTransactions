@@ -12,7 +12,7 @@
 
 <b>Subject URL : </b> <a href="https://github.com/BlackSlashProd/KvStoreTransactions/blob/master/report/ABDR_Projet_Sujet.pdf" target="_blank">KvStoreProject.pdf</a><br/>
 
-<b>Documentation URL : </b> <a href="https://github.com/BlackSlashProd/KvStoreTransactions/blob/master/report/C.Barbier%20-%20R.%20Keunen.pdf" target="_blank">ReportKvStoreProject.pdf</a><br/>
+<b>Report URL : </b> <a href="https://github.com/BlackSlashProd/KvStoreTransactions/blob/master/report/C.Barbier%20-%20R.%20Keunen.pdf" target="_blank">ReportKvStoreProject.pdf</a><br/>
  
 <h2>Authors</h2>
 
