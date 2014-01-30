@@ -1,8 +1,4 @@
-KvStoreTransactions
-===================
-
-
-<h1>NeoTransaction</h1>
+<h1>KvStoreTransactions</h1>
 
 <h2>Project</h2>
 
