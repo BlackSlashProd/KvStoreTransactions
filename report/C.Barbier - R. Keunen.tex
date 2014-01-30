@@ -1,0 +1,440 @@
+% !TEX encoding = UTF-8
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[francais]{babel}
+\usepackage[T1]{fontenc}
+
+
+%math 
+\usepackage{amsmath}
+%\usepackage{amssymb} // Decommenter si le dernier n'est pas suffisant
+
+%Chimie
+\usepackage[version=3]{mhchem}
+%cf http://fr.wikibooks.org/wiki/LaTeX/%C3%89crire_des_formules_chimiques
+
+% Allows for temporary adjustment of side margins
+% Lorsque les tableaux sont trop grands
+\usepackage{chngpage}
+
+% provides filler text
+\usepackage{lipsum}
+% usage : \lipsum[1]
+
+% just makes the table prettier (see \toprule, \bottomrule, etc. commands below)
+\usepackage{booktabs}
+
+%Mise en page
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage[top=3cm, bottom=3cm, left=4cm, right=3cm]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{placeins}
+
+\definecolor{gris}{gray}{0.5}
+\definecolor{code}{gray}{0.95}
+
+% Table des matières cliquable 
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks, % empécher latex de colorer les liens
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black, % couleur des liens dans la table des matières
+    urlcolor=blue
+}
+
+%Points dans la table des matières
+\usepackage{tocloft}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}} % Ligne de points dans la table des matières
+
+
+%Page de garde
+
+\newlength{\larg}
+\setlength{\larg}{14.5cm}
+
+% Pour corriger alignement, jouer avec la taille de tabular (± 6cm)
+\title{
+{\rule{\larg}{1mm}}\vspace{7mm}
+\begin{tabular}{p{4cm} r}
+   & {\Huge {\bf NoSQL avec KVStore}} \\
+   & \\
+   & {\Large Administration des bases de données réparties}
+\end{tabular}\\
+\vspace{2mm}
+{\rule{\larg}{1mm}}
+\vspace{2mm} \\
+\begin{tabular}{p{10cm} r}
+   & {\large \bf NI401 - ABDR} \\
+   &{\large \bf \bsc{Hubert Naacke}}\\
+   & {\large  \today}
+\end{tabular}\\
+\vspace{10cm}
+}
+\author{\begin{tabular}{p{13.7cm}}
+\bsc{Robin Keunen}\\
+3303515\\
+\bsc{Clément Barbier}\\
+3061254
+\end{tabular}\\
+\hline }
+\date{}
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+
+\begin{document}
+
+% Titre
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+% Mise en page
+\pagestyle{fancy}
+\lhead{}
+\chead{}
+\rhead{\itshape \textcolor{gris}{Equilibrage de charges sur KVstores}}
+\lfoot{\itshape \textcolor{gris}{Administration de bases de données réparties}}
+\cfoot{}
+\rfoot{\itshape \textcolor{gris}{\thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\newpage 
+
+\begin{figure}
+    \begin{tikzpicture} 
+        \pgfplotsset{width=9cm}
+        \begin{axis}[
+            width=\textwidth - 0.5cm,
+            height=6cm,
+            title={Latence filtrée sur les stores ($f=0.95$)},
+            xlabel={Temps (ms)},
+            ylabel={Latence filtrée (ms)},
+            legend entries={$f=0.7$ ,$f=0.9$,$f=0.95$, $f=0.99$},
+        ]
+            
+            \addplot [color=green, mark=none] table {./graphs/store 1_f0.7.txt};
+            \addplot [color=red, mark=none] table {./graphs/store 1_f0.9.txt};
+            \addplot [color=blue, mark=none, line width = 1pt] table {./graphs/store 1_f0.95.txt};
+            \addplot [color=black, mark=none] table {./graphs/store 1_f0.99.txt};
+        
+        \end{axis}
+    \end{tikzpicture}
+
+    \caption{
+        Latence filtrée sur les stores 1, 3 et 5. 
+        Les stores 1 à 4 subissent une charge de 15 applications. 
+        Le store 1 subit la charge additionnelle de 5 applications. 
+        Pas de balance de la charge.
+        }
+            
+    \label{filter_factor}
+\end{figure}
+
+\begin{figure}
+    \begin{tikzpicture} 
+        \pgfplotsset{width=9cm}
+        \begin{axis}[
+            width=\textwidth - 0.5cm,
+            height=6cm,
+            title={Latence filtrée sur les stores ($f=0.95$)},
+            xlabel={Temps (ms)},
+            ylabel={Latence filtrée (ms)},
+            legend entries={store 1, store 3, store 5},
+        ]
+            
+            \addplot [color=blue, mark=none] table {./graphs/store 1_f0.95.txt};
+            \addplot [color=red, mark=none] table {./graphs/store 3_f0.95.txt};
+            \addplot [color=green, mark=none] table {./graphs/store 5_f0.95.txt};
+        
+        \end{axis}
+    \end{tikzpicture}
+
+    \caption{
+        Latence filtrée sur les stores 1, 3 et 5. 
+        Les stores 1 à 4 subissent une charge de 10 applications. 
+        Le store 1 subit la charge additionnelle de 10 applications. 
+        Pas de balance de la charge.
+        }
+            
+    \label{stores_nobalancing}
+\end{figure}
+
+
+\section{Transaction et concurrence}
+Cette section présente la solution du tme KVStore.
+Le code se trouve dans le projet kvstore dans les packages \verb tme1.ex1  et \verb tme1.ex2 .
+
+\subsection*{Exercice 1}
+    La classe \verb init  permet d'initialiser le store afin d'obtenir des résultats reproductibles.
+
+\paragraph*{A1}
+    Dans cet exercice, nous ne devions pas tenir compte des accès concurrents au données. 
+    Le programme lit simplement la valeur stockée à la clé $P1$, incrémente ce qu'il a lu et l'écrit à la clé $P1$.
+    Cette solution n'est plus viable dès que deux programmes manipulent la même donnée simultanément.
+    En effet, si les programmes $a$ et $b$ lisent $n$ simultanément, ils écriront chacun $n + 1$ en base alors que la valeur aurait du être incrémentée deux fois.
+    La valeur finale devrait être $n+2$.
+    
+    Ce résultat est montré par l'expérience: en lançant deux programmes \verb A1  qui lisent et incrémentent 1000 fois la valeur stockée à P1, on obtient une valeur finale en $P1$ de 1261, 1269 et 1289 (3 exécutions consécutives)  au lieu de 2000.
+
+\paragraph*{A2}
+    Dans \verb A2 , le programme vérifie si la valeur stockée en base est fraiche avant d'écrire.
+    On vérifie la fraicheur grace à la fonction \verb putIfVersion .
+    Cette fonction n'écrit en base que si la version de la donnée en base correspond à la version de la donnée que nous y avions lue.
+    Si la version est périmée, le programme relit la valeur et tente à nouveau de l'incrémenter et de la réécrire.
+    
+    Cette version retourne les résultats attendus : deux programmes \verb A2  exécutés simultanément incrémentent effectivement 2000 fois la valeur de $P1$.
+    
+\subsection*{Exercice 2}
+
+\paragraph*{M1}
+    Ce programme est identique à \verb A2 , il lit les valeurs de $P0$ à $P4$ en base, les incrémente et les écrit en base.
+    Si on vérifie la fraicheur des données avant de réécrire, il n'y aura pas de problème de cohérence de données.
+    En effet, vu que les données écrites (de  $P0$ à $P4$) sont indépendantes les unes des autres, l'ordre d'écriture de deux programmes n'affecte pas la valeur des données finales. 
+
+\paragraph*{M2}
+    En exécutant deux programmes \verb M2  en série, on obtient une valeur finale de 2000.
+    En exécutant deux programmes \verb M2  en parallèle, les résultats divergent, on obtient par exemple lors de 3 expériences consécutives: 2054, 2056 et 2044.
+    
+    Cette erreur est provoquée par la non-atomicité des écritures en base. 
+    L'écriture de $max+1$ sur P$0..5$ peut être interrompue par l'écriture d'un programme concurrent.
+    Quand l'écriture est interrompue en $P3$ par exemple, la valeur $max + 1$ a déjà été écrite en $P0$, $P1$ et $P2$. 
+    Le programme recommence cette itération (lecture et écriture des 5 produits).
+    Au final, les valeurs auront été incrémentées deux fois lors de cette itération.  
+    Voir la table \ref{M2} en annexe pour un exemple d'exécution.
+
+\paragraph*{M3}
+    Pour que les résultats soient cohérents, il faut que les opérations de mises à jours soient atomiques.
+    Les transactions atomiques sont implémentées dans la classe \verb Transaction .
+    Les opérations ne peuvent être exécutées de façon atomiques que si les clés ciblées partagent la même clé majeur. 
+    C'est le cas ici, nous ne manipulons que des éléments de la même catégorie.
+    La clé des produits est composée d'une partie majeure correspondant à la catégorie et d'une clé mineure correspondant au produit.
+    
+
+\section{Equilibrage de charges sur plusieurs KVStores}
+
+\subsection{Structure de notre solution}
+
+Nous avons essayé de rajouter une couche d'abstraction au dessus des KVStores: les applications clientes s'adressent à un élément unique, le maitre (\emph{Singleton}): le \verb StoreMaster . 
+Le maitre redistribue la charge aux différents stores.
+Puisque l'objet est unique et centralisé, il est possible que les opérations subissent un effet de goulot d'étranglement. 
+Cependant, un maitre décentralisé aurait été trop long à implémenter pour ce projet.
+
+Cette section détaille les éléments logiciels de notre solution. 
+
+\begin{description}
+    
+\item[project] \hfill \\
+    \begin{description}
+      \item[Item] \hfill \\
+          \verb Item  modélise l'objet à ajouter à la base.
+          Il contient cinq champs numériques et cinq champs \verb String .
+      \item[ServerParameters] \hfill \\
+          \verb ServerParameters  encapsule les paramètres nécessaires pour accéder à un KVStore (nom, IP et port).
+      \item[ConfigsServer] \hfill \\
+      \verb ConfigsServer  mémorise les paramètres correspondant aux serveurs lancés par le script fourni avec le projet.
+    \end{description}
+    
+\item[project.master] \hfill    
+    \begin{description}
+      \item[StoreMaster] \hfill \\
+          \verb StoreMaster  est l'interface fournie aux applications clientes.
+            Il maintient une liste de \verb StoreController s (un par KVStore concret).
+            Ces \\ \verb StoreController s fournissent une interface aux KVStore.
+            \verb StoreMaster  délègue les opérations du client à un des contrôleurs.
+            La délégation est faite par un \verb StoreDispatcher  au moyen du numéro du profil manipulé.
+      \item[MissingConfigurationException] \hfill \\
+          Avant d'être utilisé, le \verb StoreMaster doit être configuré.
+          La configuration consiste à lui passer une liste d'instances de \verb oracle.kv.KVStore .
+          Si cette configuration n'a pas été faite avant la instantiation, cette exception est levée.
+      \item[StoreSupervisor] \hfill \\
+          \verb StoreSupervisor  est un Runnable lancé au moment de l'instantiation du maitre. 
+          Cet objet consulte les statistiques de chaque contrôleur et déclenche un déplacement de profil pour équilibrer la charge.
+    \end{description}
+    
+\item[project.master.dispatchers] \hfill
+    
+    \begin{description}
+      \item[StoreDispatcher] \hfill \\
+            Les \verb StoreDispatcher  servent à attribuer un contrôleur à chaque profil.
+            La fonction \emph{getStoreIndexForKey} retourne un entier qui servira d'index dans la liste de contrôleurs du \verb StoreMaster .
+      \item[SingleStoreDispatcher] \hfill \\
+          Utilisé dans l'étape 1 de la résolution.
+          Retourne 0 quelque soit le profil.
+          \item[TwoStoreDispatcher] \hfill \\
+          Utilisé dans l'étape 2 de la résolution.
+          Retourne 0 pour les profils pairs et 1 pour les profils impairs.
+          \item[MultipleStoreDispatcher] \hfill \\
+            \emph{Dispatcher} final. 
+            Il retourne $index = (profil \mod n)$ où $n$ est le nombre de stores.
+            \verb MultipleStoreDispatcher  supporte en outre la fonction \emph{manualMap}.
+            Cette fonction permet d'assigner manuellement un store à un profil.
+            Lorsque le \verb StoreMaster  demande un index pour un profil, \\ \verb MultipleStoreDispatcher  fait un lookup dans sa table de profil.
+            Si le profil est dans la table, il retourne l'index associé, sinon il retourne l'index selon la fonction indiquée plus haut.        
+                
+    \end{description}
+    
+\item[project.store] \hfill
+    
+    \begin{description}
+      \item[StoreController] \hfill \\
+          \verb StoreController  est un \emph{wrapper} pour les KVStore concrets (\verb oracle.kv.KVStore ).
+          Il implémente les opérations du KVStore dont nous avons besoin.
+      \item[ProfileTransaction] \hfill \\
+          \verb ProfileTransaction  est créé par le controleur pour créer une transaction atomique.
+          Cette classe est instanciée pour un profil donné, le contrôlleur lui ajoute des opérations et lance l'exécution.
+      \item[StoreMonitor] \hfill \\
+            \verb StoreMonitor est un \verb Runnable  permettant de récolter des statistiques sur les opérations.
+            C'est aussi cette classe qui gère l'attribution des indexes aux \verb Item s insérés.
+      \item[TransactionMetrics] \hfill \\
+          Implémente \verb oracle.kv.stats.OperationMetrics . 
+          Cette classe sert à collecter les statistiques sur les transactions effectuées.
+          Les statistiques sont mises à jour pour chaque transaction.
+          Nous avons ajouté le champ \emph{filteredLatency} dont nous parlerons plus tard.
+    \end{description}
+    
+\item[project.application] \hfill
+    
+    \begin{description}
+      \item[ClientApplication] \hfill \\
+      The first item
+      \item[ClientApplication] \hfill \\
+      The second item
+    \end{description}
+    
+\item[tests] \hfill
+    
+    \begin{description}
+      \item[First] \hfill \\
+      The first item
+      \item[Second] \hfill \\
+      The second item
+      \item[Third] \hfill \\
+      The third etc \ldots
+    \end{description}
+
+
+\end{description}
+
+\subsection{Politique d'équilibrage}
+filtre exponentiel
+
+facteur d'oubli
+
+mean et standard deviation
+
+\subsection{étape 1 a}
+
+\begin{figure}
+    \begin{tikzpicture} 
+        \pgfplotsset{width=9cm}
+        \begin{axis}[
+            width=\textwidth - 0.5cm,
+            height=6cm,
+            title={Latence filtrée sur les stores ($f=0.95$)},
+            xlabel={Temps (ms)},
+            ylabel={Latence filtrée (ms)},
+            legend entries={store 1},
+        ]
+            
+            \addplot [color=blue, mark=none] table {./graphs/step1.dat};
+                    
+        \end{axis}
+    \end{tikzpicture}
+
+    \caption{
+        Latence filtrée sur les stores 1, 3 et 5. 
+        Les stores 1 à 4 subissent une charge de 15 applications. 
+        Le store 1 subit la charge additionnelle de 5 applications. 
+        Pas de balance de la charge.
+        }
+            
+    \label{stores_nobalancing}
+\end{figure}
+
+
+\subsection{étape 1 b}
+75695802
+
+\subsection{Etape 2}
+Le déplacement d'un profil Px d'un store Si à un store Sj n'est pas une opération atomique par définition. 
+
+Imaginons un fonction moveProfil prenant en paramêtre un store source (Si), un store cible (Sj) et l'identifiant du profil à déplacer (Px). Cette fonction est une transaction qui fait éxécute une suite d'opérations :
+- Lire le profil Px sur Si.
+- Copier le profil Px sur Sj.
+- Supprimer le profil Px sur Si.
+
+On ne peut pas se permettre de vérouiller l'accès à un profil durant le déplacement (généralement d'une longue durée) car celà altérerait trop les performances.
+
+Celà implique que le profil Px, en cours de déplacement, peut être sollicité par des applications clientes pour des lectures, modifications, ajouts d'objets au profil ce qui peut occassioner des problêmes de consistence des données.
+ 
+Il faut à tout moment (même pendant le déplacement) être capable de :
+- Accéder à la dernière version du Profil Px et ses objets.
+- Modifier les profils sans que ces modifications soient perdues durant le déplacement.
+- Insérer de nouveaux objets dans le profil Px tout en assurant la validité et l'unicité des clés crées.
+
+
+\appendix
+
+\begin{table}
+\label{M2}
+\caption{Exemple d'exécution de  M2  sans le mécanisme des transactions.
+Le programme $a$ est interrompu avant sa dernière écriture. 
+$a$ recommence l'itération lecture/écriture.
+Au final, les valeurs sont incrémentées deux fois lors d'une seule itération.
+}
+
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline 
+programme a & programme b\tabularnewline
+\hline 
+\hline 
+read(P4) = 73 & \tabularnewline
+\hline 
+write(P0, 74) & \tabularnewline
+\hline 
+write(P1, 74) & \tabularnewline
+\hline 
+write(P2, 74) & \tabularnewline
+\hline 
+write(P3, 74) & \tabularnewline
+\hline 
+ & read(P0) = 74\tabularnewline
+\hline 
+ & read(P1) = 74\tabularnewline
+\hline 
+ & read(P2) = 74\tabularnewline
+\hline 
+ & read(P3) = 74\tabularnewline
+\hline 
+ & read(P4) = 73\tabularnewline
+\hline 
+ & write(P0, 75)\tabularnewline
+\hline 
+ & write(P1, 75)\tabularnewline
+\hline 
+ & write(P2, 75)\tabularnewline
+\hline 
+ & write(P3, 75)\tabularnewline
+\hline 
+ & write(P4, 75)\tabularnewline
+\hline 
+write(P4, 74) !! & \tabularnewline
+\hline 
+read(P0..4) = 75 & \tabularnewline
+\hline 
+write(P0..4, 76) & \tabularnewline
+\hline 
+\end{tabular}
+\end{center}
+\end{table}
+
+\end{document}	
+
+
